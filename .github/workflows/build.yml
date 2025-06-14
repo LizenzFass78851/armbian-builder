@@ -13,19 +13,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential crossbuild-essential-arm64 git \
-          qemu-user-static debootstrap asciidoc binutils bison flex gcc-aarch64-linux-gnu \
-          gcc-arm-linux-gnueabihf cpio rsync bc binfmt-support \
-          lzop lz4 parallel u-boot-tools uuid-dev zlib1g-dev unzip libusb-1.0-0-dev \
-          parted pkg-config libncurses5-dev whiptail debian-keyring debian-archive-keyring \
-          f2fs-tools libfile-fcntllock-perl rsync libssl-dev nfs-kernel-server btrfs-progs \
-          gcc-arm-linux-gnueabihf ncurses-term p7zip-full kmod dosfstools libc6-dev-armhf-cross \
-          fakeroot pv swig aptly acl systemd-container udev g++-aarch64-linux-gnu \
-          python3-dev git-core pigz linux-base swig aptly acl systemd-container \
-          udev g++-arm-linux-gnueabihf
+    #  - name: Install dependencies
+    #    run: |
+    #      sudo apt-get update
+    #      sudo apt-get install -y build-essential crossbuild-essential-arm64 git \
+    #      qemu-user-static debootstrap asciidoc binutils bison flex gcc-aarch64-linux-gnu \
+    #      gcc-arm-linux-gnueabihf cpio rsync bc binfmt-support \
+    #      lzop lz4 parallel u-boot-tools uuid-dev zlib1g-dev unzip libusb-1.0-0-dev \
+    #      parted pkg-config libncurses5-dev whiptail debian-keyring debian-archive-keyring \
+    #      f2fs-tools libfile-fcntllock-perl rsync libssl-dev nfs-kernel-server btrfs-progs \
+    #      gcc-arm-linux-gnueabihf ncurses-term p7zip-full kmod dosfstools libc6-dev-armhf-cross \
+    #      fakeroot pv swig aptly acl systemd-container udev g++-aarch64-linux-gnu \
+    #      python3-dev git-core pigz linux-base swig aptly acl systemd-container \
+    #      udev g++-arm-linux-gnueabihf
 
       - name: Clone Armbian Build
         run: |
