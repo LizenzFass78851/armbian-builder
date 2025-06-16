@@ -4,13 +4,10 @@ on:
   push:
     paths:
       - '.github/workflows/build.yml'
-#  schedule:
-#    - cron: '02 15 */3 * 2'
+      - 'build.env'
+  schedule:
+    - cron: '02 15 */3 * 2'
   workflow_dispatch:
-
-permissions:
-  contents: write
-  packages: read
 
 concurrency:
   group: ${{ github.workflow }}
@@ -35,14 +32,27 @@ jobs:
             minimal: "no"
             desktop: "yes"
             release: "noble bookworm"
-    env:
-      BOARD: "bananapim2ultra"
-      BUILD_VER: "v25.8.0-trunk.130"
     
     steps:
       - name: Checkout
         id: checkout
         uses: actions/checkout@v4
+
+      - name: env
+        id: env
+        run: |
+          set -a
+          source $GITHUB_WORKSPACE/build.env
+
+          export BOARD="$BOARD"
+          echo "board=$BOARD" >> $GITHUB_OUTPUT
+          echo "################################################################" && bash -c "echo BOARD=$BOARD"
+          
+          export BUILD_VER="$BUILD_VER"
+          echo "build_ver=$BUILD_VER" >> $GITHUB_OUTPUT
+          echo "################################################################" && bash -c "echo BUILD_VER=$BUILD_VER"
+          
+          set +a
 
       - name: Setup QEMU
         id: qemu
@@ -57,7 +67,7 @@ jobs:
 
       - name: Clone Armbian Build
         run: |
-          git clone --depth 1 https://github.com/armbian/build.git --branch=${{ env.BUILD_VER }} armbian-build
+          git clone --depth 1 https://github.com/armbian/build.git --branch=${{ steps.env.outputs.build_ver }} armbian-build
           cd armbian-build
 
       - name: Build ${{ matrix.type }} Image
@@ -79,7 +89,7 @@ jobs:
               USE_TORRENT=yes \
               KERNEL_CONFIGURE=no \
               $([[ "${{ matrix.desktop }}" = "yes" ]] && echo "DESKTOP_ENVIRONMENT=xfce DESKTOP_ENVIRONMENT_CONFIG_NAME=config_base DESKTOP_APPGROUPS_SELECTED=") \
-              BOARD=${{ env.BOARD }}
+              BOARD=${{ steps.env.outputs.board }}
           done
 
       - name: Create Release
@@ -88,8 +98,9 @@ jobs:
           repo_token: "${{ github.token }}"
           automatic_release_tag: "${{ matrix.type }}"
           prerelease: false
-          title: "Armbian ${{ matrix.type }} image for ${{ env.BOARD }}"
+          title: "Armbian ${{ matrix.type }} image for ${{ steps.env.outputs.board }}"
           body: |
-            Armbian Version - ${{ env.BUILD_VER }}
+            ### Armbian Version
+            ${{ steps.env.outputs.build_ver }}
           files: |
             ./armbian-build/output/images/*

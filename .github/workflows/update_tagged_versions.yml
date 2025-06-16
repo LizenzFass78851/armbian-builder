@@ -2,7 +2,7 @@ name: Update Tagged Versions
 
 on:
   schedule:
-    - cron: '0 3 * * *' # daily at 03:00 UTC
+    - cron: '0 3 */7 * *'
   workflow_dispatch:
 
 jobs:
@@ -39,11 +39,11 @@ jobs:
           echo "BUILD_VER: $LATEST_TAG"
 
           seq $c | while read x; do \
-          [ -n "$LATEST_TAG" ] && echo 'patching file' && sed -i "s|BUILD_VER:.*|BUILD_VER: "${LATEST_TAG}"|g" $GITHUB_WORKSPACE/.github/workflows/build.yml; \
+          [ -n "$LATEST_TAG" ] && echo 'patching file' && sed -i "s|^BUILD_VER=.*|BUILD_VER=\"$LATEST_TAG\"|g" $GITHUB_WORKSPACE/build.env; \
           done
 
           # Commit changes if any
-          git add .
+          git add build.env
           git status
           git config --local user.name ${{ env.GIT_USER }}
           git config --local user.email ${{ env.GIT_EMAIL }}
