@@ -29,6 +29,7 @@ jobs:
           git clone https://github-actions:$GITHUB_TOKEN@${GITHUB_SERVER_URL##*/}/$GITHUB_REPOSITORY.git $GITHUB_WORKSPACE --branch $GITHUB_REF_NAME --depth=1 --single-branch
 
       - name: update build
+        id: update_build
         env:
           API_URL: "https://api.github.com/repos/armbian/build/releases/latest"
         run: |
@@ -47,7 +48,12 @@ jobs:
           git status
           git config --local user.name ${{ env.GIT_USER }}
           git config --local user.email ${{ env.GIT_EMAIL }}
-          git diff --cached --quiet && exit 0 || git commit -m "feat: Update build version to ${LATEST_TAG}"
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: Update build version to ${LATEST_TAG}"
+            echo "updated=true" >> $GITHUB_OUTPUT
+          else
+            echo "updated=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: push
         env:
@@ -55,4 +61,11 @@ jobs:
         run: |
           git config --local credential.helper '!x() { echo "password=$GITHUB_TOKEN"; };x'
           git push origin $GITHUB_REF_NAME
+
+      - name: trigger build workflow
+        if: steps.update_build.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run build.yml
 

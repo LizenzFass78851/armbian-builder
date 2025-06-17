@@ -5,8 +5,8 @@ on:
     paths:
       - '.github/workflows/build.yml'
       - 'build.env'
-  schedule:
-    - cron: '02 15 */3 * 2'
+#  schedule:
+#    - cron: '02 15 */3 * 2'
   workflow_dispatch:
 
 concurrency:
