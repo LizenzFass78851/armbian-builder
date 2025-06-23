@@ -15,4 +15,5 @@ See the [releases](https://github.com/LizenzFass78851/armbian-builder/releases) 
 | Armbian Desktop | bananapim2ultra | [desktop](https://github.com/LizenzFass78851/armbian-builder/releases/tag/desktop) |
 
 ### Build state: 
-[![generate_products](https://github.com/LizenzFass78851/armbian-builder/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/LizenzFass78851/armbian-builder/actions/workflows/build.yml)
+[![Build Armbian Image](https://github.com/LizenzFass78851/armbian-builder/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/LizenzFass78851/armbian-builder/actions/workflows/build.yml)
+[![Update Tagged Versions](https://github.com/LizenzFass78851/armbian-builder/actions/workflows/update_tagged_versions.yml/badge.svg?branch=main)](https://github.com/LizenzFass78851/armbian-builder/actions/workflows/update_tagged_versions.yml)
