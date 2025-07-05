@@ -40,7 +40,7 @@ jobs:
           echo "BUILD_VER: $LATEST_TAG"
 
           seq $c | while read x; do \
-          [ -n "$LATEST_TAG" ] && echo 'patching file' && sed -i "s|^BUILD_VER=.*|BUILD_VER=\"$LATEST_TAG\"|g" $GITHUB_WORKSPACE/build.env; \
+          [ -n "$LATEST_TAG" ] && [ "$LATEST_TAG" != "null" ] && echo 'patching file' && sed -i "s|^BUILD_VER=.*|BUILD_VER=\"$LATEST_TAG\"|g" $GITHUB_WORKSPACE/build.env; \
           done
 
           # Commit changes if any
