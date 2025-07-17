@@ -28,14 +28,18 @@ jobs:
           git config --global --add safe.directory $GITHUB_WORKSPACE
           git clone https://github-actions:$GITHUB_TOKEN@${GITHUB_SERVER_URL##*/}/$GITHUB_REPOSITORY.git $GITHUB_WORKSPACE --branch $GITHUB_REF_NAME --depth=1 --single-branch
 
+      - name: Find latest tag (update build)
+        id: update_build_find_latest
+        uses: oprypin/find-latest-tag@v1
+        with:
+          repository: armbian/build
+          releases-only: true
       - name: update build
         id: update_build
-        env:
-          API_URL: "https://api.github.com/repos/armbian/build/releases/latest"
         run: |
           [ "${{ github.workflow }}" != "${{ steps.key.outputs.key }}" ] && c=5 || c=1
           
-          LATEST_TAG=$(curl -s $API_URL | jq -r .tag_name)
+          LATEST_TAG=${{ steps.update_build_find_latest.outputs.tag }}
           
           echo "BUILD_VER: $LATEST_TAG"
 
