@@ -31,7 +31,7 @@ jobs:
           - type: desktop
             minimal: "no"
             desktop: "yes"
-            release: "noble bookworm"
+            release: "noble trixie"
     
     steps:
       - name: Checkout
