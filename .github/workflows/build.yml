@@ -9,6 +9,9 @@ on:
 #    - cron: '02 15 */3 * 2'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
@@ -93,12 +96,13 @@ jobs:
           done
 
       - name: Create Release
-        uses: "crowbarmaster/GH-Automatic-Releases@v1.6.0"
+        uses: softprops/action-gh-release@v2
         with:
-          repo_token: "${{ github.token }}"
-          automatic_release_tag: "${{ matrix.type }}"
+          token: "${{ github.token }}"
+          tag_name: "${{ matrix.type }}"
+          generate_release_notes: false
           prerelease: false
-          title: "Armbian ${{ matrix.type }} image for ${{ steps.env.outputs.board }}"
+          name: "Armbian ${{ matrix.type }} image for ${{ steps.env.outputs.board }}"
           body: |
             ### Armbian Version
             ${{ steps.env.outputs.build_ver }}
