@@ -95,6 +95,14 @@ jobs:
               BOARD=${{ steps.env.outputs.board }}
           done
 
+      - name: Delete existing tag
+        uses: dev-drprasad/delete-tag-and-release@v1.1
+        with:
+          tag_name: "${{ matrix.type }}"
+          github_token: ${{ github.token }}
+          delete_release: true
+          repo: ${{ github.repository }}
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
