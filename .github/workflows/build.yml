@@ -38,7 +38,6 @@ jobs:
     
     steps:
       - name: Checkout
-        id: checkout
         uses: actions/checkout@v5
 
       - name: env
@@ -69,9 +68,12 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Clone Armbian Build
-        run: |
-          git clone --depth 1 https://github.com/armbian/build.git --branch=${{ steps.env.outputs.build_ver }} armbian-build
-          cd armbian-build
+        uses: actions/checkout@v5
+        with:
+          repository: armbian/build
+          ref: ${{ steps.env.outputs.build_ver }}
+          path: ${{ github.workspace }}/armbian-build
+          persist-credentials: false
 
       - name: Build ${{ matrix.type }} Image
         run: |
