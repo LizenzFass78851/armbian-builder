@@ -14,14 +14,8 @@ jobs:
       GIT_EMAIL: github-actions[bot]@users.noreply.github.com
 
     steps:
-      - name: key
-        id: key
-        run: |
-          export KEY="${GITHUB_WORKFLOW%-*}"
-          echo "key=$KEY" >> $GITHUB_OUTPUT
-          echo "################################################################" && bash -c "echo KEY=$KEY"
-
-      - uses: actions/checkout@v5
+      - name: clone
+        uses: actions/checkout@v5
         with:
           clean: false
 
@@ -34,15 +28,11 @@ jobs:
       - name: update build
         id: update_build
         run: |
-          [ "${{ github.workflow }}" != "${{ steps.key.outputs.key }}" ] && c=5 || c=1
-          
           LATEST_TAG=${{ steps.update_build_find_latest.outputs.tag }}
           
           echo "BUILD_VER: $LATEST_TAG"
 
-          seq $c | while read x; do \
           [ -n "$LATEST_TAG" ] && [ "$LATEST_TAG" != "null" ] && echo 'patching file' && sed -i "s|^BUILD_VER=.*|BUILD_VER=\"$LATEST_TAG\"|g" $GITHUB_WORKSPACE/build.env; \
-          done
 
           # Commit changes if any
           git add build.env
