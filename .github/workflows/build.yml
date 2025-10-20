@@ -16,6 +16,10 @@ concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
 
+env:
+  COMPARE_FILE0: /tmp/.armbian-env-content-0.txt
+  COMPARE_FILE1: /tmp/.armbian-env-content-1.txt
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -46,6 +50,10 @@ jobs:
           set -a
           source $GITHUB_WORKSPACE/build.env
 
+          export KEY="${{ github.job }}"
+          echo "key=$KEY" >> $GITHUB_OUTPUT
+          echo "################################################################" && bash -c "echo KEY=$KEY"
+
           export BOARD="$BOARD"
           echo "board=$BOARD" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo BOARD=$BOARD"
@@ -53,6 +61,12 @@ jobs:
           export BUILD_VER="$BUILD_VER"
           echo "build_ver=$BUILD_VER" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo BUILD_VER=$BUILD_VER"
+
+          export TIMESTAMP="$(date -u +%Y%m%d_%H%M%S)"
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "################################################################" && bash -c "echo TIMESTAMP=$TIMESTAMP"
+
+          echo "keymatrix=$KEY-$BOARD-${{ matrix.type }}" >> $GITHUB_OUTPUT
           
           set +a
 
@@ -75,7 +89,38 @@ jobs:
           path: ${{ github.workspace }}/armbian-build
           persist-credentials: false
 
+      - name: cache_load
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.COMPARE_FILE0 }}
+          key: ${{ steps.env.outputs.keymatrix }}-${{ steps.env.outputs.timestamp }}
+          restore-keys: |
+            ${{ steps.env.outputs.keymatrix }}-
+
+      - name: compare
+        shell: bash
+        id: compare
+        run: |
+          cp $GITHUB_WORKSPACE/build.env ${{ env.COMPARE_FILE1 }}
+
+          if [ ! -e "${{ env.COMPARE_FILE0 }}" ]; then
+            echo "copy File for cache"
+            cp ${{ env.COMPARE_FILE1 }} ${{ env.COMPARE_FILE0 }}
+          else
+            CONTENT_FILE0=$(cat ${{ env.COMPARE_FILE0 }})
+            CONTENT_FILE1=$(cat ${{ env.COMPARE_FILE1 }})
+            if [ "$CONTENT_FILE0" = "$CONTENT_FILE1" ]; then
+              echo "Still at latest version"
+              echo "latest_version=true" >> $GITHUB_OUTPUT
+            else
+              echo "Not at latest version"
+              cp ${{ env.COMPARE_FILE1 }} ${{ env.COMPARE_FILE0 }}
+            fi
+          fi
+
       - name: Build ${{ matrix.type }} Image
+        if: steps.compare.outputs.latest_version != 'true'
         run: |
           cd armbian-build
           for release in ${{ matrix.release }}; do
@@ -98,6 +143,7 @@ jobs:
           done
 
       - name: Delete existing tag
+        if: steps.compare.outputs.latest_version != 'true'
         uses: dev-drprasad/delete-tag-and-release@v1.1
         continue-on-error: true
         with:
@@ -107,6 +153,7 @@ jobs:
           repo: ${{ github.repository }}
 
       - name: Create Release
+        if: steps.compare.outputs.latest_version != 'true'
         uses: softprops/action-gh-release@v2
         with:
           token: "${{ github.token }}"
@@ -119,3 +166,11 @@ jobs:
             ${{ steps.env.outputs.build_ver }}
           files: |
             ./armbian-build/output/images/*
+
+      - name: cache_save
+        if: steps.compare.outputs.latest_version != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.COMPARE_FILE0 }}
+          key: ${{ steps.env.outputs.keymatrix }}-${{ steps.env.outputs.timestamp }}
