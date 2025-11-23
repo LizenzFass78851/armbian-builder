@@ -166,6 +166,7 @@ jobs:
           tag_name: "${{ matrix.type }}"
           generate_release_notes: false
           prerelease: false
+          draft: false
           name: "Armbian ${{ matrix.type }} image for ${{ steps.env.outputs.board }}"
           body: |
             ### Armbian Version
