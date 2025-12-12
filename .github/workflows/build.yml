@@ -96,7 +96,7 @@ jobs:
           persist-credentials: false
 
       - name: cache_load
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ${{ env.COMPARE_FILE0 }}
@@ -176,7 +176,7 @@ jobs:
 
       - name: cache_save
         if: steps.compare.outputs.latest_version != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             ${{ env.COMPARE_FILE0 }}
