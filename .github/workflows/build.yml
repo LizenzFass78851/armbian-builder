@@ -42,7 +42,6 @@ jobs:
     
     steps:
       - uses: mathio/gha-cleanup@v1
-        if: ${{ matrix.type == 'standard' }}
         with:
           remove-browsers: true
           verbose: true
