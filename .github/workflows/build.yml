@@ -148,30 +148,35 @@ jobs:
           done
 
       - name: Delete existing tag
+        shell: sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_ONWER_REPO: ${{ github.repository }}
         if: steps.compare.outputs.latest_version != 'true'
-        uses: dev-drprasad/delete-tag-and-release@v1.1
         continue-on-error: true
-        with:
-          tag_name: "${{ matrix.type }}"
-          github_token: ${{ github.token }}
-          delete_release: true
-          repo: ${{ github.repository }}
+        run: gh release delete "${{ matrix.type }}" --cleanup-tag --yes --repo $GH_ONWER_REPO
 
-      - name: Create Release
+      - name: Publish release files
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_ONWER_REPO: ${{ github.repository }}
         if: steps.compare.outputs.latest_version != 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          token: "${{ github.token }}"
-          tag_name: "${{ matrix.type }}"
-          generate_release_notes: false
-          prerelease: false
-          draft: false
-          name: "Armbian ${{ matrix.type }} image for ${{ steps.env.outputs.board }}"
-          body: |
-            ### Armbian Version
-            ${{ steps.env.outputs.build_ver }}
-          files: |
-            ./armbian-build/output/images/*
+        run: |
+          # create release-notes
+          cat > /tmp/release-notes.txt <<EOF
+          ### Armbian Version
+          ${{ steps.env.outputs.build_ver }}
+          EOF
+          # create release
+          gh release create "${{ matrix.type }}" \
+            --title "Armbian ${{ matrix.type }} image for ${{ steps.env.outputs.board }}" \
+            --notes-file /tmp/release-notes.txt \
+            --prerelease=false \
+            --draft=false \
+            --latest=true \
+            --repo "$GH_ONWER_REPO" \
+            $(find ./armbian-build/output/images/* -type f)
 
       - name: cache_save
         if: steps.compare.outputs.latest_version != 'true'
