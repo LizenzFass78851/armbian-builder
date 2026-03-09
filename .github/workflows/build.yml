@@ -30,11 +30,11 @@ jobs:
           - type: standard
             minimal: "no"
             desktop: "no"
-            release: "noble bookworm trixie"
+            release: "noble resolute bookworm trixie"
           - type: minimal
             minimal: "yes"
             desktop: "no"
-            release: "noble bookworm trixie"
+            release: "noble resolute bookworm trixie"
           - type: desktop
             minimal: "no"
             desktop: "yes"
