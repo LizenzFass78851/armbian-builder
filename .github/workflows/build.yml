@@ -8,9 +8,13 @@ on:
 #  schedule:
 #    - cron: '02 15 */3 * 2'
   workflow_dispatch:
-
-permissions:
-  contents: write
+    inputs:
+      recache:
+        description: 'Delete Cache before Build?'
+        required: false
+        options: [ 'yes', 'no' ]
+        type: choice
+        default: 'no'
 
 concurrency:
   group: ${{ github.workflow }}
@@ -21,8 +25,32 @@ env:
   COMPARE_FILE1: /tmp/.armbian-env-content-1.txt
 
 jobs:
+  clear_cache:
+    runs-on: ubuntu-slim
+    if: ${{ github.event.inputs.recache == 'yes' }}
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: clear_cache
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ONWER: ${{ github.repository_owner }}
+          GH_REPO: ${{ github.event.repository.name }}
+        shell: bash
+        run: |
+          set -e +o pipefail
+          echo "Recache selected - Deleting all caches for this workflow ..."
+          gh cache delete --all --succeed-on-no-caches \
+            --repo $GH_ONWER/$GH_REPO
+
   build:
     runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.clear_cache.result != 'failure' }}
+    permissions:
+      contents: write
+    needs: [ clear_cache ]
     strategy:
       fail-fast: false
       matrix:
