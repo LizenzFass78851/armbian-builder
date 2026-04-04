@@ -95,6 +95,10 @@ jobs:
           echo "build_ver=$BUILD_VER" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo BUILD_VER=$BUILD_VER"
 
+          export KERNEL_BRANCH="$KERNEL_BRANCH"
+          echo "kernel_branch=$KERNEL_BRANCH" >> $GITHUB_OUTPUT
+          echo "################################################################" && bash -c "echo KERNEL_BRANCH=$KERNEL_BRANCH"
+
           export TIMESTAMP="$(date -u +%Y%m%d_%H%M%S)"
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo TIMESTAMP=$TIMESTAMP"
@@ -164,7 +168,7 @@ jobs:
               SHOW_DEBIAN=yes \
               BUILD_MINIMAL=${{ matrix.minimal }} \
               BUILD_DESKTOP=${{ matrix.desktop }} \
-              BRANCH=current \
+              BRANCH=${{ steps.env.outputs.kernel_branch }} \
               RELEASE=${release} \
               EXPERT=yes \
               USE_MAINLINE_GOOGLE_MIRROR=no \
