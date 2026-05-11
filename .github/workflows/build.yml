@@ -171,7 +171,7 @@ jobs:
               USE_GITHUB_UBOOT_MIRROR=yes \
               USE_TORRENT=yes \
               KERNEL_CONFIGURE=no \
-              $([[ "${{ matrix.desktop }}" = "yes" ]] && echo "DESKTOP_ENVIRONMENT=xfce DESKTOP_ENVIRONMENT_CONFIG_NAME=config_base DESKTOP_APPGROUPS_SELECTED=") \
+              $([[ "${{ matrix.desktop }}" = "yes" ]] && echo "DESKTOP_ENVIRONMENT=xfce DESKTOP_ENVIRONMENT_CONFIG_NAME=config_base DESKTOP_APPGROUPS_SELECTED=mid") \
               BOARD=${{ steps.env.outputs.board }}
           done
 
