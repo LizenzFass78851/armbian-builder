@@ -213,6 +213,24 @@ jobs:
               BOARD=${{ steps.env.outputs.board }}
           done
 
+      - name: after prepare
+        if: steps.compare.outputs.latest_version != 'true'
+        run: |
+          # split bigger files
+          cd ./armbian-build/output/images/
+          for file in *.img.*; do
+            if [[ -f "$file" ]]; then
+              size=$(stat -c %s "$file")
+              if (( size > 1920*1024*1024 )); then
+                echo "Processing $file (size: $size bytes > 1920MB)"
+                split -b 1920M --numeric-suffixes=1 --suffix-length=3 "$file" "$file."
+                rm "$file"
+              else
+                echo "$file is smaller than 1920 MB, splitting is skipped."
+              fi
+            fi
+          done
+
       - name: Delete existing tag
         shell: sh
         env:
