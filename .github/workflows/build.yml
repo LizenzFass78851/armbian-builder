@@ -45,16 +45,50 @@ jobs:
           gh cache delete --all --succeed-on-no-caches \
             --repo $GH_ONWER/$GH_REPO
 
+  setup_matrix:
+    runs-on: ubuntu-slim
+    outputs:
+      board_kernel_matrix: ${{ steps.parse.outputs.matrix }}
+    steps:
+      - &checkout
+        name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Parse board_kernel_pairs
+        id: parse
+        shell: bash
+        run: |
+          source $GITHUB_WORKSPACE/build.env
+          
+          # Parse BOARD_KERNEL_PAIRS into JSON array
+          IFS=',' read -ra PAIRS <<< "$BOARD_KERNEL_PAIRS"
+          MATRIX_JSON="["
+          
+          for i in "${!PAIRS[@]}"; do
+            PAIR="${PAIRS[$i]}"
+            BOARD="${PAIR%:*}"
+            KERNEL="${PAIR#*:}"
+            
+            if [ $i -gt 0 ]; then
+              MATRIX_JSON="$MATRIX_JSON,"
+            fi
+            MATRIX_JSON="$MATRIX_JSON{\"board\":\"$BOARD\",\"kernel\":\"$KERNEL\"}"
+          done
+          
+          MATRIX_JSON="$MATRIX_JSON]"
+          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+          echo "Generated matrix: $MATRIX_JSON"
+
   build:
     runs-on: ubuntu-latest
     if: ${{ !cancelled() && needs.clear_cache.result != 'failure' }}
     permissions:
       contents: write
-    needs: [ clear_cache ]
+    needs: [ clear_cache, setup_matrix ]
     strategy:
       fail-fast: false
       matrix:
-        include:
+        build_type:
           - type: standard
             minimal: "no"
             desktop: "no"
@@ -67,6 +101,7 @@ jobs:
             minimal: "no"
             desktop: "yes"
             release: "noble trixie"
+        board_kernel: ${{ fromJson(needs.setup_matrix.outputs.board_kernel_matrix) }}
     
     steps:
       - uses: mathio/gha-cleanup@v1
@@ -74,8 +109,7 @@ jobs:
           remove-browsers: true
           verbose: true
           
-      - name: Checkout
-        uses: actions/checkout@v6
+      - *checkout
 
       - name: env
         id: env
@@ -87,15 +121,19 @@ jobs:
           echo "key=$KEY" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo KEY=$KEY"
 
-          export BOARD="$BOARD"
+          export BOARD="${{ matrix.board_kernel.board }}"
           echo "board=$BOARD" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo BOARD=$BOARD"
-          
+
+          export TYPE="${{ matrix.build_type.type }}"
+          echo "type=$TYPE" >> $GITHUB_OUTPUT
+          echo "################################################################" && bash -c "echo TYPE=$TYPE"
+
           export BUILD_VER="$BUILD_VER"
           echo "build_ver=$BUILD_VER" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo BUILD_VER=$BUILD_VER"
 
-          export KERNEL_BRANCH="$KERNEL_BRANCH"
+          export KERNEL_BRANCH="${{ matrix.board_kernel.kernel }}"
           echo "kernel_branch=$KERNEL_BRANCH" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo KERNEL_BRANCH=$KERNEL_BRANCH"
 
@@ -103,7 +141,7 @@ jobs:
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo TIMESTAMP=$TIMESTAMP"
 
-          echo "keymatrix=$KEY-$BOARD-${{ matrix.type }}" >> $GITHUB_OUTPUT
+          echo "keymatrix=$KEY-$BOARD-$TYPE" >> $GITHUB_OUTPUT
           
           set +a
 
@@ -151,19 +189,19 @@ jobs:
             fi
           fi
 
-      - name: Build ${{ matrix.type }} Image
+      - name: Build ${{ steps.env.outputs.type }} Image
         if: steps.compare.outputs.latest_version != 'true'
         run: |
           cd armbian-build
-          for release in ${{ matrix.release }}; do
+          for release in ${{ matrix.build_type.release }}; do
             bash ./compile.sh \
               PREFER_DOCKER=yes \
               DOCKER_ARMBIAN_BASE_IMAGE=debian:bookworm \
               BUILD_ONLY=armbian-bsp \
               COMPRESS_OUTPUTIMAGE=xz,sha,txt \
               SHOW_DEBIAN=yes \
-              BUILD_MINIMAL=${{ matrix.minimal }} \
-              BUILD_DESKTOP=${{ matrix.desktop }} \
+              BUILD_MINIMAL=${{ matrix.build_type.minimal }} \
+              BUILD_DESKTOP=${{ matrix.build_type.desktop }} \
               BRANCH=${{ steps.env.outputs.kernel_branch }} \
               RELEASE=${release} \
               EXPERT=yes \
@@ -171,7 +209,7 @@ jobs:
               USE_GITHUB_UBOOT_MIRROR=yes \
               USE_TORRENT=yes \
               KERNEL_CONFIGURE=no \
-              $([[ "${{ matrix.desktop }}" = "yes" ]] && echo "DESKTOP_ENVIRONMENT=xfce DESKTOP_ENVIRONMENT_CONFIG_NAME=config_base DESKTOP_APPGROUPS_SELECTED=mid") \
+              $([[ "${{ matrix.build_type.desktop }}" = "yes" ]] && echo "DESKTOP_ENVIRONMENT=xfce DESKTOP_ENVIRONMENT_CONFIG_NAME=config_base DESKTOP_APPGROUPS_SELECTED=mid") \
               BOARD=${{ steps.env.outputs.board }}
           done
 
@@ -182,7 +220,7 @@ jobs:
           GH_OWNER_REPO: ${{ github.repository }}
         if: steps.compare.outputs.latest_version != 'true'
         continue-on-error: true
-        run: gh release delete "${{ matrix.type }}" --cleanup-tag --yes --repo $GH_OWNER_REPO
+        run: gh release delete "${{ steps.env.outputs.board }}-${{ steps.env.outputs.type }}" --cleanup-tag --yes --repo $GH_OWNER_REPO
 
       - name: Publish release files
         shell: bash
@@ -197,8 +235,8 @@ jobs:
           ${{ steps.env.outputs.build_ver }}
           EOF
           # create release
-          gh release create "${{ matrix.type }}" \
-            --title "Armbian ${{ matrix.type }} image for ${{ steps.env.outputs.board }}" \
+          gh release create "${{ steps.env.outputs.board }}-${{ steps.env.outputs.type }}" \
+            --title "Armbian ${{ steps.env.outputs.type }} image for ${{ steps.env.outputs.board }}" \
             --notes-file /tmp/release-notes.txt \
             --prerelease=false \
             --draft=false \

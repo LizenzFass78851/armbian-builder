@@ -19,13 +19,13 @@ jobs:
         with:
           clean: false
 
-      - name: Find latest tag (update build)
+      - name: Find latest tag (update build) [excluding trunk]
         id: update_build_find_latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: armbian/build
         run: |
-          if ! LATEST_TAG=$(gh api repos/$REPOSITORY/releases/latest --jq '.tag_name' 2>/dev/null); then
+          if ! LATEST_TAG=$(gh api repos/$REPOSITORY/releases --jq '.[] | select(.tag_name | contains("trunk") | not) | .tag_name' | head -n 1 2>/dev/null); then
             echo "::error::Failed to fetch latest tag for repository $REPOSITORY"
           elif [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
             echo "::warning::No tags found for repository $REPOSITORY"
