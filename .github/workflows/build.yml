@@ -137,10 +137,6 @@ jobs:
           echo "kernel_branch=$KERNEL_BRANCH" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo KERNEL_BRANCH=$KERNEL_BRANCH"
 
-          export TIMESTAMP="$(date -u +%Y%m%d_%H%M%S)"
-          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
-          echo "################################################################" && bash -c "echo TIMESTAMP=$TIMESTAMP"
-
           echo "keymatrix=$KEY-$BOARD-$TYPE" >> $GITHUB_OUTPUT
           
           set +a
@@ -164,7 +160,7 @@ jobs:
         with:
           path: |
             ${{ env.COMPARE_FILE0 }}
-          key: ${{ steps.env.outputs.keymatrix }}-${{ steps.env.outputs.timestamp }}
+          key: ${{ steps.env.outputs.keymatrix }}-${{ github.run_id }}
           restore-keys: |
             ${{ steps.env.outputs.keymatrix }}-
 
@@ -268,4 +264,4 @@ jobs:
         with:
           path: |
             ${{ env.COMPARE_FILE0 }}
-          key: ${{ steps.env.outputs.keymatrix }}-${{ steps.env.outputs.timestamp }}
+          key: ${{ steps.env.outputs.keymatrix }}-${{ github.run_id }}
