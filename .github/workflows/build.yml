@@ -100,7 +100,7 @@ jobs:
           - type: desktop
             minimal: "no"
             desktop: "yes"
-            release: "noble trixie"
+            release: "resolute trixie"
         board_kernel: ${{ fromJson(needs.setup_matrix.outputs.board_kernel_matrix) }}
     
     steps:
