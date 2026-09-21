@@ -192,7 +192,7 @@ jobs:
           for release in ${{ matrix.build_type.release }}; do
             bash ./compile.sh \
               PREFER_DOCKER=yes \
-              DOCKER_ARMBIAN_BASE_IMAGE=debian:bookworm \
+              DOCKER_ARMBIAN_BASE_IMAGE=debian:trixie \
               BUILD_ONLY=armbian-bsp \
               COMPRESS_OUTPUTIMAGE=xz,sha,txt \
               SHOW_DEBIAN=yes \
