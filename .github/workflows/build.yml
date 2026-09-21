@@ -143,9 +143,6 @@ jobs:
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v4
-      
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v4
 
       - name: Clone Armbian Build
         uses: actions/checkout@v7
@@ -185,28 +182,28 @@ jobs:
             fi
           fi
 
-      - name: Build ${{ steps.env.outputs.type }} Image
+      - name: Build Image
         if: steps.compare.outputs.latest_version != 'true'
+        working-directory: armbian-build
         run: |
-          cd armbian-build
           for release in ${{ matrix.build_type.release }}; do
             bash ./compile.sh \
-              PREFER_DOCKER=yes \
-              DOCKER_ARMBIAN_BASE_IMAGE=debian:trixie \
+              ARTIFACT_IGNORE_CACHE=no \
+              BOARD=${{ steps.env.outputs.board }} \
+              BRANCH=${{ steps.env.outputs.kernel_branch }} \
+              BUILD_DESKTOP=${{ matrix.build_type.desktop }} \
+              BUILD_MINIMAL=${{ matrix.build_type.minimal }} \
               BUILD_ONLY=armbian-bsp \
               COMPRESS_OUTPUTIMAGE=xz,sha,txt \
-              SHOW_DEBIAN=yes \
-              BUILD_MINIMAL=${{ matrix.build_type.minimal }} \
-              BUILD_DESKTOP=${{ matrix.build_type.desktop }} \
-              BRANCH=${{ steps.env.outputs.kernel_branch }} \
-              RELEASE=${release} \
-              EXPERT=yes \
-              USE_MAINLINE_GOOGLE_MIRROR=no \
-              USE_GITHUB_UBOOT_MIRROR=yes \
-              USE_TORRENT=yes \
-              KERNEL_CONFIGURE=no \
               $([[ "${{ matrix.build_type.desktop }}" = "yes" ]] && echo "DESKTOP_ENVIRONMENT=xfce DESKTOP_ENVIRONMENT_CONFIG_NAME=config_base DESKTOP_APPGROUPS_SELECTED=mid") \
-              BOARD=${{ steps.env.outputs.board }}
+              EXPERT=yes \
+              KERNEL_CONFIGURE=no \
+              MAINLINE_MIRROR=google \
+              PREFER_DOCKER=yes \
+              RELEASE=${release} \
+              SHOW_DEBIAN=yes \
+              UBOOT_MIRROR=github \
+              USE_TORRENT=yes
           done
 
       - name: after prepare
