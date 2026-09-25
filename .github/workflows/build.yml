@@ -201,6 +201,7 @@ jobs:
               MAINLINE_MIRROR=google \
               PREFER_DOCKER=yes \
               RELEASE=${release} \
+              REWRITE_PATCHES_NEEDING_REBASE=yes \
               SHOW_DEBIAN=yes \
               UBOOT_MIRROR=github \
               USE_TORRENT=yes
