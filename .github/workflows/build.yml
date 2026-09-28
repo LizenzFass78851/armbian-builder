@@ -9,6 +9,10 @@ on:
 #    - cron: '02 15 */3 * 2'
   workflow_dispatch:
     inputs:
+      armbian_commit_ref:
+        description: 'Commit Ref from armbian/build to skip checkout release tag'
+        required: false
+        default: ''
       recache:
         description: 'Delete Cache before Build?'
         required: false
@@ -129,10 +133,17 @@ jobs:
           echo "type=$TYPE" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo TYPE=$TYPE"
 
-          export BUILD_VER="$BUILD_VER"
-          echo "build_ver=$BUILD_VER" >> $GITHUB_OUTPUT
-          echo "################################################################" && bash -c "echo BUILD_VER=$BUILD_VER"
-
+          ARMBIAN_COMMIT_REF="${{ github.event.inputs.armbian_commit_ref }}"
+          if [ -z "$ARMBIAN_COMMIT_REF" ]; then
+            export BUILD_VER="$BUILD_VER"
+            echo "build_ver=$BUILD_VER" >> $GITHUB_OUTPUT
+            echo "################################################################" && bash -c "echo BUILD_VER=$BUILD_VER"
+          else
+            export BUILD_VER="$ARMBIAN_COMMIT_REF"
+            echo "build_ver=$ARMBIAN_COMMIT_REF" >> $GITHUB_OUTPUT
+            echo "################################################################" && bash -c "echo BUILD_VER=$ARMBIAN_COMMIT_REF"
+          fi
+          
           export KERNEL_BRANCH="${{ matrix.board_kernel.kernel }}"
           echo "kernel_branch=$KERNEL_BRANCH" >> $GITHUB_OUTPUT
           echo "################################################################" && bash -c "echo KERNEL_BRANCH=$KERNEL_BRANCH"
@@ -163,6 +174,7 @@ jobs:
 
       - name: compare
         shell: bash
+        if: ${{ inputs.armbian_commit_ref == '' }}
         id: compare
         run: |
           cp $GITHUB_WORKSPACE/build.env ${{ env.COMPARE_FILE1 }}
@@ -208,7 +220,7 @@ jobs:
           done
 
       - name: after prepare
-        if: steps.compare.outputs.latest_version != 'true'
+        if: ${{ github.event_name != 'push' && steps.compare.outputs.latest_version != 'true' }}
         run: |
           # split bigger files
           cd ./armbian-build/output/images/
@@ -230,7 +242,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_OWNER_REPO: ${{ github.repository }}
-        if: steps.compare.outputs.latest_version != 'true'
+        if: ${{ github.event_name != 'push' && steps.compare.outputs.latest_version != 'true' }}
         continue-on-error: true
         run: gh release delete "${{ steps.env.outputs.board }}-${{ steps.env.outputs.type }}" --cleanup-tag --yes --repo $GH_OWNER_REPO
 
@@ -239,12 +251,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_OWNER_REPO: ${{ github.repository }}
-        if: steps.compare.outputs.latest_version != 'true'
+          ARMBIAN_REPO: armbian/build
+          ARMBIAN_VERSION: ${{ steps.env.outputs.build_ver }}
+          ARMBIAN_COMMIT_REF: ${{ inputs.armbian_commit_ref }}
+        if: ${{ github.event_name != 'push' && steps.compare.outputs.latest_version != 'true' }}
         run: |
           # create release-notes
+          if [ -z "${ARMBIAN_COMMIT_REF}" ]; then
+            ARMBIAN_URL_PREFIX="https://github.com/${ARMBIAN_REPO}/releases/tag"
+            ARMBIAN_VERSION_TEXT="[${ARMBIAN_VERSION}](${ARMBIAN_URL_PREFIX}/${ARMBIAN_VERSION})"
+          else
+            ARMBIAN_URL_PREFIX="https://github.com/${ARMBIAN_REPO}/commit"
+            ARMBIAN_VERSION_TEXT="[${ARMBIAN_VERSION}](${ARMBIAN_URL_PREFIX}/${ARMBIAN_VERSION})"
+          fi
           cat > /tmp/release-notes.txt <<EOF
           ### Armbian Version
-          ${{ steps.env.outputs.build_ver }}
+          ${ARMBIAN_VERSION_TEXT}
           EOF
           # create release
           gh release create "${{ steps.env.outputs.board }}-${{ steps.env.outputs.type }}" \
@@ -257,7 +279,7 @@ jobs:
             $(find ./armbian-build/output/images/* -type f)
 
       - name: cache_save
-        if: steps.compare.outputs.latest_version != 'true'
+        if: ${{ github.event_name != 'push' && inputs.armbian_commit_ref == '' && steps.compare.outputs.latest_version != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: |
