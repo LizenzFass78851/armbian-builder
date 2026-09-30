@@ -16,8 +16,6 @@ jobs:
     steps:
       - name: clone
         uses: actions/checkout@v7
-        with:
-          clean: false
 
       - name: Find latest tag (update build)
         id: update_build_find_latest
@@ -67,4 +65,3 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh workflow run build.yml
-
