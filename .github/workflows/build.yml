@@ -115,42 +115,17 @@ jobs:
           
       - *checkout
 
-      - name: env
-        id: env
+      - name: prepare workflow
+        id: prepare_workflow
+        env:
+          ARMBIAN_COMMIT_REF: ${{ inputs.armbian_commit_ref }}
+          BOARD: ${{ matrix.board_kernel.board }}
+          BUILD_TYPE: ${{ matrix.build_type.type }}
         run: |
-          set -a
-          source $GITHUB_WORKSPACE/build.env
-
-          export KEY="${{ github.job }}"
-          echo "key=$KEY" >> $GITHUB_OUTPUT
-          echo "################################################################" && bash -c "echo KEY=$KEY"
-
-          export BOARD="${{ matrix.board_kernel.board }}"
-          echo "board=$BOARD" >> $GITHUB_OUTPUT
-          echo "################################################################" && bash -c "echo BOARD=$BOARD"
-
-          export TYPE="${{ matrix.build_type.type }}"
-          echo "type=$TYPE" >> $GITHUB_OUTPUT
-          echo "################################################################" && bash -c "echo TYPE=$TYPE"
-
-          ARMBIAN_COMMIT_REF="${{ github.event.inputs.armbian_commit_ref }}"
-          if [ -z "$ARMBIAN_COMMIT_REF" ]; then
-            export BUILD_VER="$BUILD_VER"
-            echo "build_ver=$BUILD_VER" >> $GITHUB_OUTPUT
-            echo "################################################################" && bash -c "echo BUILD_VER=$BUILD_VER"
-          else
-            export BUILD_VER="$ARMBIAN_COMMIT_REF"
-            echo "build_ver=$ARMBIAN_COMMIT_REF" >> $GITHUB_OUTPUT
-            echo "################################################################" && bash -c "echo BUILD_VER=$ARMBIAN_COMMIT_REF"
-          fi
-          
-          export KERNEL_BRANCH="${{ matrix.board_kernel.kernel }}"
-          echo "kernel_branch=$KERNEL_BRANCH" >> $GITHUB_OUTPUT
-          echo "################################################################" && bash -c "echo KERNEL_BRANCH=$KERNEL_BRANCH"
-
-          echo "keymatrix=$KEY-$BOARD-$TYPE" >> $GITHUB_OUTPUT
-          
-          set +a
+          source "$GITHUB_WORKSPACE/build.env"
+          BUILD_VER="${ARMBIAN_COMMIT_REF:-$BUILD_VER}"
+          printf 'build_ver=%s\n' "$BUILD_VER" >> "$GITHUB_OUTPUT"
+          printf 'keymatrix=%s-%s-%s\n' "$GITHUB_JOB" "$BOARD" "$BUILD_TYPE" >> "$GITHUB_OUTPUT"
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v4
@@ -159,7 +134,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: armbian/build
-          ref: ${{ steps.env.outputs.build_ver }}
+          ref: ${{ steps.prepare_workflow.outputs.build_ver }}
           path: ${{ github.workspace }}/armbian-build
           persist-credentials: false
 
@@ -168,9 +143,9 @@ jobs:
         with:
           path: |
             ${{ env.COMPARE_FILE0 }}
-          key: ${{ steps.env.outputs.keymatrix }}-${{ github.run_id }}
+          key: ${{ steps.prepare_workflow.outputs.keymatrix }}-${{ github.run_id }}
           restore-keys: |
-            ${{ steps.env.outputs.keymatrix }}-
+            ${{ steps.prepare_workflow.outputs.keymatrix }}-
 
       - name: compare
         shell: bash
@@ -201,8 +176,8 @@ jobs:
           for release in ${{ matrix.build_type.release }}; do
             bash ./compile.sh \
               ARTIFACT_IGNORE_CACHE=no \
-              BOARD=${{ steps.env.outputs.board }} \
-              BRANCH=${{ steps.env.outputs.kernel_branch }} \
+              BOARD=${{ matrix.board_kernel.board }} \
+              BRANCH=${{ matrix.board_kernel.kernel }} \
               BUILD_DESKTOP=${{ matrix.build_type.desktop }} \
               BUILD_MINIMAL=${{ matrix.build_type.minimal }} \
               BUILD_ONLY=armbian-bsp \
@@ -244,7 +219,7 @@ jobs:
           GH_OWNER_REPO: ${{ github.repository }}
         if: ${{ github.event_name != 'push' && steps.compare.outputs.latest_version != 'true' }}
         continue-on-error: true
-        run: gh release delete "${{ steps.env.outputs.board }}-${{ steps.env.outputs.type }}" --cleanup-tag --yes --repo $GH_OWNER_REPO
+        run: gh release delete "${{ matrix.board_kernel.board }}-${{ matrix.build_type.type }}" --cleanup-tag --yes --repo $GH_OWNER_REPO
 
       - name: Publish release files
         shell: bash
@@ -252,7 +227,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_OWNER_REPO: ${{ github.repository }}
           ARMBIAN_REPO: armbian/build
-          ARMBIAN_VERSION: ${{ steps.env.outputs.build_ver }}
+          ARMBIAN_VERSION: ${{ steps.prepare_workflow.outputs.build_ver }}
           ARMBIAN_COMMIT_REF: ${{ inputs.armbian_commit_ref }}
         if: ${{ github.event_name != 'push' && steps.compare.outputs.latest_version != 'true' }}
         run: |
@@ -269,8 +244,8 @@ jobs:
           ${ARMBIAN_VERSION_TEXT}
           EOF
           # create release
-          gh release create "${{ steps.env.outputs.board }}-${{ steps.env.outputs.type }}" \
-            --title "Armbian ${{ steps.env.outputs.type }} image for ${{ steps.env.outputs.board }}" \
+          gh release create "${{ matrix.board_kernel.board }}-${{ matrix.build_type.type }}" \
+            --title "Armbian ${{ matrix.build_type.type }} image for ${{ matrix.board_kernel.board }}" \
             --notes-file /tmp/release-notes.txt \
             --prerelease=false \
             --draft=false \
@@ -284,4 +259,4 @@ jobs:
         with:
           path: |
             ${{ env.COMPARE_FILE0 }}
-          key: ${{ steps.env.outputs.keymatrix }}-${{ github.run_id }}
+          key: ${{ steps.prepare_workflow.outputs.keymatrix }}-${{ github.run_id }}
