@@ -10,15 +10,15 @@ See the [releases](https://github.com/LizenzFass78851/armbian-builder/releases) 
 ## Armbian Images
 | Product | Board | Link |
 |:------------------:|:--------------:|:--------------:|
-| Armbian Standard | bananapim2ultra | [standard](https://github.com/LizenzFass78851/armbian-builder/releases/tag/bananapim2ultra-standard) |
-| Armbian Standard | uefi-x86 | [standard](https://github.com/LizenzFass78851/armbian-builder/releases/tag/uefi-x86-standard) |
-| Armbian Standard | rpi4b | [standard](https://github.com/LizenzFass78851/armbian-builder/releases/tag/rpi4b-standard) |
-| Armbian Minimal | bananapim2ultra | [minimal](https://github.com/LizenzFass78851/armbian-builder/releases/tag/bananapim2ultra-minimal) |
-| Armbian Minimal | uefi-x86 | [minimal](https://github.com/LizenzFass78851/armbian-builder/releases/tag/uefi-x86-minimal) |
-| Armbian Minimal | rpi4b | [minimal](https://github.com/LizenzFass78851/armbian-builder/releases/tag/rpi4b-minimal) |
 | Armbian Desktop | bananapim2ultra | [desktop](https://github.com/LizenzFass78851/armbian-builder/releases/tag/bananapim2ultra-desktop) |
-| Armbian Desktop | uefi-x86 | [desktop](https://github.com/LizenzFass78851/armbian-builder/releases/tag/uefi-x86-desktop) |
+| Armbian Minimal | bananapim2ultra | [minimal](https://github.com/LizenzFass78851/armbian-builder/releases/tag/bananapim2ultra-minimal) |
+| Armbian Standard | bananapim2ultra | [standard](https://github.com/LizenzFass78851/armbian-builder/releases/tag/bananapim2ultra-standard) |
 | Armbian Desktop | rpi4b | [desktop](https://github.com/LizenzFass78851/armbian-builder/releases/tag/rpi4b-desktop) |
+| Armbian Minimal | rpi4b | [minimal](https://github.com/LizenzFass78851/armbian-builder/releases/tag/rpi4b-minimal) |
+| Armbian Standard | rpi4b | [standard](https://github.com/LizenzFass78851/armbian-builder/releases/tag/rpi4b-standard) |
+| Armbian Desktop | uefi-x86 | [desktop](https://github.com/LizenzFass78851/armbian-builder/releases/tag/uefi-x86-desktop) |
+| Armbian Minimal | uefi-x86 | [minimal](https://github.com/LizenzFass78851/armbian-builder/releases/tag/uefi-x86-minimal) |
+| Armbian Standard | uefi-x86 | [standard](https://github.com/LizenzFass78851/armbian-builder/releases/tag/uefi-x86-standard) |
 
 ### Build state: 
 [![Build Armbian Image](https://github.com/LizenzFass78851/armbian-builder/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/LizenzFass78851/armbian-builder/actions/workflows/build.yml)
