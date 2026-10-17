@@ -3,6 +3,7 @@ name: Update Tagged Versions
 on:
   schedule:
     - cron: '0 3 */7 * *'
+      timezone: "UTC"
   workflow_dispatch:
 
 jobs:

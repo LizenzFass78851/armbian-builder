@@ -7,6 +7,7 @@ on:
       - 'build.env'
 #  schedule:
 #    - cron: '02 15 */3 * 2'
+#      timezone: "UTC"
   workflow_dispatch:
     inputs:
       armbian_commit_ref:
