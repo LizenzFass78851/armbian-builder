@@ -52,14 +52,50 @@ jobs:
 
   setup_matrix:
     runs-on: ubuntu-slim
+    permissions:
+      contents: read
     outputs:
       board_kernel_matrix: ${{ steps.parse.outputs.matrix }}
     steps:
       - *clone
 
+      - name: Resolve Ubuntu runners
+        id: resolve_runners
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UBUNTU_VERSION=$(gh api repos/actions/runner-images/contents/README.md \
+            --jq '
+              .content | gsub("\\s"; "") | @base64d | split("\n") as $lines |
+              ([$lines[] |
+                select(test("^\\| Ubuntu [0-9]+\\.[0-9]+<br>.*\\| x64 \\|.*`ubuntu-[0-9]+\\.[0-9]+`")) |
+                capture("Ubuntu (?<version>[0-9]+\\.[0-9]+)").version] |
+                unique |
+                sort_by(split(".") | map(tonumber)) |
+                last) as $version |
+              if $version == null then
+                error("Could not find a versioned x64 Ubuntu runner in actions/runner-images README")
+              elif any($lines[];
+                contains("Ubuntu \($version) Arm64") and
+                contains("`ubuntu-\($version)-arm`"))
+              then $version
+              else error("No matching ARM runner found for ubuntu-\($version)")
+              end
+            ' || true)
+          [ -n ${UBUNTU_VERSION} ] && HOST_X64_RUNNER="ubuntu-${UBUNTU_VERSION}"
+          [ -z ${UBUNTU_VERSION} ] && HOST_X64_RUNNER="ubuntu-latest"
+          [ -n ${UBUNTU_VERSION} ] && HOST_ARM_RUNNER="ubuntu-${UBUNTU_VERSION}-arm"
+          [ -z ${UBUNTU_VERSION} ] && HOST_ARM_RUNNER="ubuntu-latest"
+          echo "::notice::Resolved Ubuntu runners: $HOST_X64_RUNNER and $HOST_ARM_RUNNER"
+          echo "HOST_X64_RUNNER=$HOST_X64_RUNNER" >> "$GITHUB_OUTPUT"
+          echo "HOST_ARM_RUNNER=$HOST_ARM_RUNNER" >> "$GITHUB_OUTPUT"
+
       - name: Parse board_kernel_pairs
         id: parse
         shell: bash
+        env:
+          HOST_X64_RUNNER: ${{ steps.resolve_runners.outputs.HOST_X64_RUNNER }}
+          HOST_ARM_RUNNER: ${{ steps.resolve_runners.outputs.HOST_ARM_RUNNER }}
         run: |
           source "$GITHUB_WORKSPACE/build.env"
 
@@ -68,13 +104,29 @@ jobs:
 
           for i in "${!PAIRS[@]}"; do
             PAIR="${PAIRS[$i]}"
-            BOARD="${PAIR%:*}"
-            KERNEL="${PAIR#*:}"
+            IFS=':' read -r -a FIELDS <<< "$PAIR"
+            BOARD="${FIELDS[0]}"
+            KERNEL="${FIELDS[1]}"
+            RUNNER="${FIELDS[2]}"
+
+            if [ "${#FIELDS[@]}" -ne 3 ] || [ -z "$BOARD" ] || [ -z "$KERNEL" ]; then
+              echo "::error::Invalid BOARD_KERNEL_PAIRS entry: $PAIR"
+              exit 1
+            fi
+
+            case "$RUNNER" in
+              host-x64) RUNNER="${HOST_X64_RUNNER}" ;;
+              host-arm) RUNNER="${HOST_ARM_RUNNER}" ;;
+              *)
+                echo "::error::Invalid runner in BOARD_KERNEL_PAIRS entry: $PAIR (expected host-x64 or host-arm)"
+                exit 1
+                ;;
+            esac
 
             if [ "$i" -gt 0 ]; then
               MATRIX_JSON="$MATRIX_JSON,"
             fi
-            MATRIX_JSON="$MATRIX_JSON{\"board\":\"$BOARD\",\"kernel\":\"$KERNEL\"}"
+            MATRIX_JSON="$MATRIX_JSON{\"board\":\"$BOARD\",\"kernel\":\"$KERNEL\",\"runner\":\"$RUNNER\"}"
           done
 
           MATRIX_JSON="$MATRIX_JSON]"
@@ -82,7 +134,7 @@ jobs:
           echo "Generated matrix: $MATRIX_JSON"
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.board_kernel.runner }}
     if: ${{ !cancelled() && needs.clear_cache.result != 'failure' }}
     permissions:
       contents: write

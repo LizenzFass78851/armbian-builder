@@ -1,6 +1,11 @@
 # armbian-builder
 Automated Armbian OS image builder.
 
+## Build configuration
+
+Each `BOARD_KERNEL_PAIRS` entry in [`build.env`](./build.env) uses the format
+`board:kernel:runner`, where `runner` is `host-x64` or `host-arm`.
+
 > [!IMPORTANT]
 > **no guarantee that the packages are up-to-date and functional**
 > (there is no influence on some things)
