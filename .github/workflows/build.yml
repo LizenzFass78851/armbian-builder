@@ -134,6 +134,7 @@ jobs:
           echo "Generated matrix: $MATRIX_JSON"
 
   build:
+    name: Build Armbian (${{ matrix.build_type.type }} / ${{ matrix.board_kernel.board }} / ${{ matrix.board_kernel.kernel }})
     runs-on: ${{ matrix.board_kernel.runner }}
     if: ${{ !cancelled() && needs.clear_cache.result != 'failure' }}
     permissions:
