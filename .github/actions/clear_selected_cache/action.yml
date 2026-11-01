@@ -1,5 +1,5 @@
-name: clear_cache_action
-description: Action to clear all cache of the current repo
+name: clear_selected_cache_action
+description: Action to clear selected caches of the current repo
 
 inputs:
   # Actions cannot access secrets so pass them in as inputs
@@ -14,6 +14,9 @@ inputs:
     required: false
     description: The repository name to clear the cache
     default: ${{ github.event.repository.name }}
+  cachekeyprefix:
+    required: true
+    description: Prefix of the cache keys to delete
   recache:
     required: false
     default: no
@@ -27,6 +30,7 @@ runs:
         [[ "${{ inputs.github_token }}"  ]]    || { echo "github_token input is empty"     ; exit 1; }
         [[ "${{ inputs.repository_onwer }}" ]] || { echo "repository_onwer input is empty" ; exit 1; }
         [[ "${{ inputs.repository_name }}" ]]  || { echo "repository_name input is empty"  ; exit 1; }
+        [[ "${{ inputs.cachekeyprefix }}" ]]   || { echo "cachekeyprefix input is empty"   ; exit 1; }
         [[ "${{ inputs.recache }}" ]]          || { echo "recache input is empty"          ; true; }
 
     - name: clear_cache
@@ -34,13 +38,27 @@ runs:
         GH_TOKEN: ${{ inputs.github_token }}
         GH_ONWER: ${{ inputs.repository_onwer }}
         GH_REPO: ${{ inputs.repository_name }}
+        CACHE_KEY_PREFIX: ${{ inputs.cachekeyprefix }}
       shell: bash
       run: |
-        set -e +o pipefail
+        set -euo pipefail
         if [ "${{ inputs.recache }}" == "yes" ]; then
-          echo "::notice::Recache selected - Deleting all caches for this workflow ..."
-          gh cache delete --all --succeed-on-no-caches \
-            --repo $GH_ONWER/$GH_REPO
+          echo "::notice::Recache selected - Deleting selected caches only ..."
+          mapfile -t CACHE_IDS < <(
+            gh cache list \
+              --limit 1000 \
+              --json id,key \
+              --jq ".[] | select(.key | startswith(\"${CACHE_KEY_PREFIX}\")) | .id" \
+              --repo "$GH_ONWER/$GH_REPO"
+          )
+
+          if [ "${#CACHE_IDS[@]}" -eq 0 ]; then
+            echo "No selected caches found."
+          else
+            for cache_id in "${CACHE_IDS[@]}"; do
+              gh cache delete "$cache_id" --repo "$GH_ONWER/$GH_REPO"
+            done
+          fi
         else
           echo "::warning::No recache selected - Skipping cache deletion ..."
         fi
