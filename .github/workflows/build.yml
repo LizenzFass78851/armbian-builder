@@ -31,7 +31,7 @@ env:
   COMPARE_FILE1: /tmp/.armbian-env-content-1.txt
 
 jobs:
-  clear_cache:
+  clear_selected_cache:
     runs-on: ubuntu-slim
     if: ${{ github.event.inputs.recache == 'yes' }}
     permissions:
@@ -42,13 +42,14 @@ jobs:
         name: clone
         uses: actions/checkout@v7
 
-      - name: clear_cache
-        uses: ./.github/actions/clear_cache
+      - name: clear_selected_cache
+        uses: ./.github/actions/clear_selected_cache
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           repository_onwer: ${{ github.repository_owner }}
           repository_name: ${{ github.event.repository.name }}
           recache: ${{ github.event.inputs.recache }}
+          cachekeyprefix: build
 
   setup_matrix:
     runs-on: ubuntu-slim
@@ -136,10 +137,10 @@ jobs:
   build:
     name: Build Armbian (${{ matrix.build_type.type }} / ${{ matrix.board_kernel.board }} / ${{ matrix.board_kernel.kernel }})
     runs-on: ${{ matrix.board_kernel.runner }}
-    if: ${{ !cancelled() && needs.clear_cache.result != 'failure' }}
+    if: ${{ !cancelled() && needs.clear_selected_cache.result != 'failure' }}
     permissions:
       contents: write
-    needs: [ clear_cache, setup_matrix ]
+    needs: [ clear_selected_cache, setup_matrix ]
     strategy:
       fail-fast: false
       matrix:
