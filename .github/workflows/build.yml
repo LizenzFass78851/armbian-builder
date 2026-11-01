@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - '.github/workflows/build.yml'
+      - '.github/actions/armbian/**'
+      - '.github/actions/clear_cache/**'
       - 'build.env'
 #  schedule:
 #    - cron: '02 15 */3 * 2'
@@ -35,52 +37,48 @@ jobs:
     permissions:
       actions: write
       contents: read
-
     steps:
+      - &clone
+        name: clone
+        uses: actions/checkout@v7
+
       - name: clear_cache
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_ONWER: ${{ github.repository_owner }}
-          GH_REPO: ${{ github.event.repository.name }}
-        shell: bash
-        run: |
-          set -e +o pipefail
-          echo "::notice::Recache selected - Deleting all caches for this workflow ..."
-          gh cache delete --all --succeed-on-no-caches \
-            --repo $GH_ONWER/$GH_REPO
+        uses: ./.github/actions/clear_cache
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          repository_onwer: ${{ github.repository_owner }}
+          repository_name: ${{ github.event.repository.name }}
+          recache: ${{ github.event.inputs.recache }}
 
   setup_matrix:
     runs-on: ubuntu-slim
     outputs:
       board_kernel_matrix: ${{ steps.parse.outputs.matrix }}
     steps:
-      - &checkout
-        name: Checkout
-        uses: actions/checkout@v7
+      - *clone
 
       - name: Parse board_kernel_pairs
         id: parse
         shell: bash
         run: |
-          source $GITHUB_WORKSPACE/build.env
-          
-          # Parse BOARD_KERNEL_PAIRS into JSON array
+          source "$GITHUB_WORKSPACE/build.env"
+
           IFS=',' read -ra PAIRS <<< "$BOARD_KERNEL_PAIRS"
           MATRIX_JSON="["
-          
+
           for i in "${!PAIRS[@]}"; do
             PAIR="${PAIRS[$i]}"
             BOARD="${PAIR%:*}"
             KERNEL="${PAIR#*:}"
-            
-            if [ $i -gt 0 ]; then
+
+            if [ "$i" -gt 0 ]; then
               MATRIX_JSON="$MATRIX_JSON,"
             fi
             MATRIX_JSON="$MATRIX_JSON{\"board\":\"$BOARD\",\"kernel\":\"$KERNEL\"}"
           done
-          
+
           MATRIX_JSON="$MATRIX_JSON]"
-          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+          echo "matrix=$MATRIX_JSON" >> "$GITHUB_OUTPUT"
           echo "Generated matrix: $MATRIX_JSON"
 
   build:
@@ -106,157 +104,26 @@ jobs:
             desktop: "yes"
             release: "resolute trixie"
         board_kernel: ${{ fromJson(needs.setup_matrix.outputs.board_kernel_matrix) }}
-    
+
     steps:
       - uses: mathio/gha-cleanup@v1
         with:
           remove-browsers: true
           verbose: true
-          
-      - *checkout
 
-      - name: prepare workflow
-        id: prepare_workflow
-        env:
-          ARMBIAN_COMMIT_REF: ${{ inputs.armbian_commit_ref }}
-          BOARD: ${{ matrix.board_kernel.board }}
-          BUILD_TYPE: ${{ matrix.build_type.type }}
-        run: |
-          source "$GITHUB_WORKSPACE/build.env"
-          BUILD_VER="${ARMBIAN_COMMIT_REF:-$BUILD_VER}"
-          printf 'build_ver=%s\n' "$BUILD_VER" >> "$GITHUB_OUTPUT"
-          printf 'keymatrix=%s-%s-%s\n' "$GITHUB_JOB" "$BOARD" "$BUILD_TYPE" >> "$GITHUB_OUTPUT"
+      - *clone
 
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v4
-
-      - name: Clone Armbian Build
-        uses: actions/checkout@v7
+      - name: Build Armbian
+        uses: ./.github/actions/armbian
         with:
-          repository: armbian/build
-          ref: ${{ steps.prepare_workflow.outputs.build_ver }}
-          path: ${{ github.workspace }}/armbian-build
-          persist-credentials: false
-
-      - name: cache_load
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            ${{ env.COMPARE_FILE0 }}
-          key: ${{ steps.prepare_workflow.outputs.keymatrix }}-${{ github.run_id }}
-          restore-keys: |
-            ${{ steps.prepare_workflow.outputs.keymatrix }}-
-
-      - name: compare
-        shell: bash
-        if: ${{ inputs.armbian_commit_ref == '' }}
-        id: compare
-        run: |
-          cp $GITHUB_WORKSPACE/build.env ${{ env.COMPARE_FILE1 }}
-
-          if [ ! -e "${{ env.COMPARE_FILE0 }}" ]; then
-            echo "copy File for cache"
-            cp ${{ env.COMPARE_FILE1 }} ${{ env.COMPARE_FILE0 }}
-          else
-            CONTENT_FILE0=$(cat ${{ env.COMPARE_FILE0 }})
-            CONTENT_FILE1=$(cat ${{ env.COMPARE_FILE1 }})
-            if [ "$CONTENT_FILE0" = "$CONTENT_FILE1" ]; then
-              echo "Still at latest version"
-              echo "latest_version=true" >> $GITHUB_OUTPUT
-            else
-              echo "Not at latest version"
-              cp ${{ env.COMPARE_FILE1 }} ${{ env.COMPARE_FILE0 }}
-            fi
-          fi
-
-      - name: Build Image
-        if: steps.compare.outputs.latest_version != 'true'
-        working-directory: armbian-build
-        run: |
-          for release in ${{ matrix.build_type.release }}; do
-            bash ./compile.sh \
-              ARTIFACT_IGNORE_CACHE=no \
-              BOARD=${{ matrix.board_kernel.board }} \
-              BRANCH=${{ matrix.board_kernel.kernel }} \
-              BUILD_DESKTOP=${{ matrix.build_type.desktop }} \
-              BUILD_MINIMAL=${{ matrix.build_type.minimal }} \
-              BUILD_ONLY=armbian-bsp \
-              COMPRESS_OUTPUTIMAGE=xz,sha,txt \
-              $([[ "${{ matrix.build_type.desktop }}" = "yes" ]] && echo "DESKTOP_ENVIRONMENT=xfce DESKTOP_ENVIRONMENT_CONFIG_NAME=config_base DESKTOP_APPGROUPS_SELECTED=mid") \
-              EXPERT=yes \
-              KERNEL_CONFIGURE=no \
-              MAINLINE_MIRROR=google \
-              PREFER_DOCKER=yes \
-              RELEASE=${release} \
-              REWRITE_PATCHES_NEEDING_REBASE=yes \
-              SHOW_DEBIAN=yes \
-              UBOOT_MIRROR=github \
-              USE_TORRENT=yes
-          done
-
-      - name: after prepare
-        if: ${{ github.event_name != 'push' && steps.compare.outputs.latest_version != 'true' }}
-        run: |
-          # split bigger files
-          cd ./armbian-build/output/images/
-          for file in *.img.*; do
-            if [[ -f "$file" ]]; then
-              size=$(stat -c %s "$file")
-              if (( size > 1920*1024*1024 )); then
-                echo "Processing $file (size: $size bytes > 1920MB)"
-                split -b 1920M --numeric-suffixes=1 --suffix-length=3 "$file" "$file."
-                rm "$file"
-              else
-                echo "$file is smaller than 1920 MB, splitting is skipped."
-              fi
-            fi
-          done
-
-      - name: Delete existing tag
-        shell: sh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_OWNER_REPO: ${{ github.repository }}
-        if: ${{ github.event_name != 'push' && steps.compare.outputs.latest_version != 'true' }}
-        continue-on-error: true
-        run: gh release delete "${{ matrix.board_kernel.board }}-${{ matrix.build_type.type }}" --cleanup-tag --yes --repo $GH_OWNER_REPO
-
-      - name: Publish release files
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_OWNER_REPO: ${{ github.repository }}
-          ARMBIAN_REPO: armbian/build
-          ARMBIAN_VERSION: ${{ steps.prepare_workflow.outputs.build_ver }}
-          ARMBIAN_COMMIT_REF: ${{ inputs.armbian_commit_ref }}
-        if: ${{ github.event_name != 'push' && steps.compare.outputs.latest_version != 'true' }}
-        run: |
-          # create release-notes
-          if [ -z "${ARMBIAN_COMMIT_REF}" ]; then
-            ARMBIAN_URL_PREFIX="https://github.com/${ARMBIAN_REPO}/releases/tag"
-            ARMBIAN_VERSION_TEXT="[${ARMBIAN_VERSION}](${ARMBIAN_URL_PREFIX}/${ARMBIAN_VERSION})"
-          else
-            ARMBIAN_URL_PREFIX="https://github.com/${ARMBIAN_REPO}/commit"
-            ARMBIAN_VERSION_TEXT="[${ARMBIAN_VERSION}](${ARMBIAN_URL_PREFIX}/${ARMBIAN_VERSION})"
-          fi
-          cat > /tmp/release-notes.txt <<EOF
-          ### Armbian Version
-          ${ARMBIAN_VERSION_TEXT}
-          EOF
-          # create release
-          gh release create "${{ matrix.board_kernel.board }}-${{ matrix.build_type.type }}" \
-            --title "Armbian ${{ matrix.build_type.type }} image for ${{ matrix.board_kernel.board }}" \
-            --notes-file /tmp/release-notes.txt \
-            --prerelease=false \
-            --draft=false \
-            --latest=true \
-            --repo "$GH_OWNER_REPO" \
-            $(find ./armbian-build/output/images/* -type f)
-
-      - name: cache_save
-        if: ${{ github.event_name != 'push' && inputs.armbian_commit_ref == '' && steps.compare.outputs.latest_version != 'true' }}
-        uses: actions/cache/save@v6
-        with:
-          path: |
-            ${{ env.COMPARE_FILE0 }}
-          key: ${{ steps.prepare_workflow.outputs.keymatrix }}-${{ github.run_id }}
+          board: ${{ matrix.board_kernel.board }}
+          kernel: ${{ matrix.board_kernel.kernel }}
+          build_type: ${{ matrix.build_type.type }}
+          minimal: ${{ matrix.build_type.minimal }}
+          desktop: ${{ matrix.build_type.desktop }}
+          releases: ${{ matrix.build_type.release }}
+          armbian_commit_ref: ${{ inputs.armbian_commit_ref }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          compare_file0: ${{ env.COMPARE_FILE0 }}
+          compare_file1: ${{ env.COMPARE_FILE1 }}
+          repository: ${{ github.repository }}
