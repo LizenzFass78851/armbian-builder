@@ -49,7 +49,7 @@ jobs:
           repository_onwer: ${{ github.repository_owner }}
           repository_name: ${{ github.event.repository.name }}
           recache: ${{ github.event.inputs.recache }}
-          cachekeyprefix: build
+          cachekeyprefix: ${{ github.workflow }}-
 
   setup_matrix:
     runs-on: ubuntu-slim
