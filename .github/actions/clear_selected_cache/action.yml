@@ -48,7 +48,7 @@ runs:
             gh cache list \
               --limit 1000 \
               --json id,key \
-              --jq ".[] | select(.key | startswith(\"${CACHE_KEY_PREFIX}-\")) | .id" \
+              --jq ".[] | select(.key | startswith(\"${CACHE_KEY_PREFIX}\")) | .id" \
               --repo "$GH_ONWER/$GH_REPO"
           )
 
